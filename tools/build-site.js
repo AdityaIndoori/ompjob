@@ -20,8 +20,11 @@ function inline(s) {
     .replace(/`([^`]+)`/g, (_, c) => '<code>' + c + '</code>')
     .replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (_, a, u) => '<img alt="' + a + '" src="' + u + '">')
     .replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_, t, u) => '<a href="' + rewriteLink(u) + '">' + t + '</a>')
-    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
-    .replace(/(^|[\s(])\*([^*\s][^*]*)\*/g, '$1<em>$2</em>');
+    // Bold first, with a non-greedy body that MAY contain single asterisks --
+    // otherwise `**bold with *italic* inside**` never matches and the italic
+    // rule consumes the inner pair, leaving literal ** on the page.
+    .replace(/\*\*([\s\S]+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/(^|[\s(>])\*([^*\s][^*]*)\*/g, '$1<em>$2</em>');
 }
 
 // Repo-relative links must point at the built pages, not the .md files.
