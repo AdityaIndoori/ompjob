@@ -1,0 +1,17 @@
+# Normalize everything to LF in the repo, but check out PowerShell as CRLF:
+# Windows PowerShell 5.1 is the consumer and CRLF is its native form.
+* text=auto eol=lf
+
+*.ps1  text eol=crlf
+*.psm1 text eol=crlf
+*.psd1 text eol=crlf
+
+*.js   text eol=lf
+*.json text eol=lf
+*.md   text eol=lf
+*.html text eol=lf
+*.yml  text eol=lf
+
+*.png binary
+*.gif binary
+*.ico binary

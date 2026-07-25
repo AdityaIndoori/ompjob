@@ -1,0 +1,35 @@
+# Job state written at runtime. These are TRANSCRIPTS OF AI CONVERSATIONS,
+# your prompts, and the agent's output. Never commit them.
+runs/
+session/
+transcript.jsonl
+render.log
+inbox.jsonl
+status.json
+status.json.tmp
+meta.json
+done.json
+err.log
+out.log
+*.log
+*.jsonl
+
+# Generated docs site
+site/
+
+# Credentials - never, under any circumstance
+*.pem
+*credentials*.json
+.cloudflared/
+.env
+.env.*
+
+# Node
+node_modules/
+npm-debug.log*
+
+# OS / editor
+Thumbs.db
+.DS_Store
+.vscode/
+.idea/
