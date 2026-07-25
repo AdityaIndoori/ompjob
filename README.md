@@ -234,6 +234,11 @@ works: `transcript.jsonl` (every RPC frame), `render.log` (the replay backlog),
 | `_launch.ps1` | Thin wrapper the Scheduled Task executes |
 | `install.ps1` | Adds the `ompjob` function to your `$PROFILE` |
 
+## Documentation
+
+Full docs: **[ompjob.aindoori.com](https://ompjob.aindoori.com)** — generated from
+this repository's own markdown, so it can never drift from the README.
+
 ## License
 
 MIT — see [LICENSE](LICENSE).
