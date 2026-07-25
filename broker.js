@@ -32,6 +32,9 @@ let lastText = '';
 let curText = '';
 const clients = new Set();
 const pendingInbox = [];
+// id -> { text, triedSteer }: lets a rejected prompt/steer be retried the
+// other way instead of vanishing.
+const pendingSends = new Map();
 
 function writeStatus() {
   const s = {
@@ -107,8 +110,26 @@ function deliver(text, who) {
   fs.appendFileSync(P('inbox.jsonl'),
     JSON.stringify({ at: new Date().toISOString(), who, text }) + '\n');
   emit('user', (who ? '[' + who + '] ' : '') + text);
-  if (streaming) sendRpc({ id: nextId('steer'), type: 'steer', message: text });
-  else           sendRpc({ id: nextId('prompt'), type: 'prompt', message: text });
+  send(text);
+}
+
+function drainInbox() {
+  while (pendingInbox.length) {
+    const m = pendingInbox.shift();
+    deliver(m.text, m.who);
+  }
+}
+
+// A bare `prompt` is REJECTED while the agent is streaming, and `steer` is
+// meaningless when it is idle -- so the choice must match omp's actual state,
+// not ours. Our `streaming` flag can lag right after `ready` (a resumed session
+// rehydrates before emitting agent_start), so on failure we retry the other
+// form instead of dropping the message.
+function send(text, asSteer) {
+  const useSteer = asSteer === undefined ? streaming : asSteer;
+  const id = nextId(useSteer ? 'steer' : 'prompt');
+  pendingSends.set(id, { text, triedSteer: useSteer });
+  sendRpc({ id, type: useSteer ? 'steer' : 'prompt', message: text });
 }
 
 // ------------------------------------------------------------- frame pump
@@ -132,7 +153,11 @@ function handle(f) {
     case 'ready':
       setState('waiting');
       if (meta.prompt && !meta.resume) deliver(meta.prompt, null);
-      while (pendingInbox.length) { const m = pendingInbox.shift(); deliver(m.text, m.who); }
+      // On a resumed session omp may still be rehydrating; ask for the real
+      // streaming state before draining anything queued, so the first message
+      // after a revive is not sent in the wrong form.
+      sendRpc({ id: 'state_boot', type: 'get_state' });
+      drainInbox();
       break;
 
     case 'agent_start':
@@ -151,6 +176,9 @@ function handle(f) {
     }
 
     case 'message_end':
+      // message_start/end fire for user messages too, but the frame's role is
+      // not a reliable discriminator across omp versions. Buffered stream text
+      // is: it only ever accumulates from assistant text_delta events.
       if (curText.trim()) { emit('assistant', curText.trim()); lastText = curText.trim(); }
       curText = '';
       break;
@@ -181,9 +209,37 @@ function handle(f) {
       break;
     }
 
-    case 'response':
+    case 'response': {
+      // Learn omp's real streaming state on boot; a resumed session may still
+      // be rehydrating when `ready` arrives.
+      if (f.id === 'state_boot') {
+        if (f.success && f.data) {
+          streaming = !!f.data.isStreaming;
+          setState(streaming ? 'thinking' : 'waiting');
+        }
+        drainInbox();
+        break;
+      }
+      const p = f.id ? pendingSends.get(f.id) : null;
+      if (p) {
+        pendingSends.delete(f.id);
+        if (f.success === false) {
+          // Wrong form for the agent's real state -- flip it once and resend.
+          if (!p.retried) {
+            emit('system', 'requeued message (' + (p.triedSteer ? 'steer' : 'prompt') + ' rejected)');
+            const again = !p.triedSteer;
+            const id = nextId(again ? 'steer' : 'prompt');
+            pendingSends.set(id, { text: p.text, triedSteer: again, retried: true });
+            sendRpc({ id, type: again ? 'steer' : 'prompt', message: p.text });
+          } else {
+            emit('error', 'message could not be delivered: ' + f.error);
+          }
+        }
+        break;
+      }
       if (f.success === false) emit('error', f.command + ': ' + f.error);
       break;
+    }
   }
 }
 
