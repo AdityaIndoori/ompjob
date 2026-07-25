@@ -40,9 +40,23 @@ if (-not $node) { throw 'node not found on PATH' }
 & $node $broker $RunDir 2>> (Join-Path $RunDir 'err.log')
 $code = $LASTEXITCODE
 
-[IO.File]::WriteAllText($donePath, (@{
-    endedAt  = (Get-Date).ToString('o')
-    exitCode = $code
-} | ConvertTo-Json), $utf8)
+# Only a CLEAN broker exit is terminal. A crash or hard kill must stay
+# revivable, otherwise the AtStartup trigger skips a job that never finished
+# and the user silently loses the work.
+$brokerSaidGoodbye = $false
+$statusPath = Join-Path $RunDir 'status.json'
+if (Test-Path -LiteralPath $statusPath) {
+    try {
+        $st = [IO.File]::ReadAllText($statusPath) | ConvertFrom-Json
+        $brokerSaidGoodbye = ($st.state -eq 'exited')
+    } catch { }
+}
+
+if ($code -eq 0 -and $brokerSaidGoodbye) {
+    [IO.File]::WriteAllText($donePath, (@{
+        endedAt  = (Get-Date).ToString('o')
+        exitCode = $code
+    } | ConvertTo-Json), $utf8)
+}
 
 exit $code
