@@ -236,8 +236,14 @@ works: `transcript.jsonl` (every RPC frame), `render.log` (the replay backlog),
 
 ## Documentation
 
-Full docs: **[ompjob.aindoori.com](https://ompjob.aindoori.com)** — generated from
-this repository's own markdown, so it can never drift from the README.
+Hosted at **[ompjob.aindoori.com](https://ompjob.aindoori.com)**, generated from
+this repository's own markdown so it can never drift.
+
+| Guide | For |
+|---|---|
+| **[Tutorial](docs/tutorial.md)** | A guided first hour, with expected output at every step |
+| **[Reference](docs/reference.md)** | Every command, flag, state, file, and the pipe protocol |
+| **[Security](SECURITY.md)** | Read before granting this admin rights |
 
 ## License
 

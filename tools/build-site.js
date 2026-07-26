@@ -30,8 +30,11 @@ function inline(s) {
 // Repo-relative links must point at the built pages, not the .md files.
 function rewriteLink(u) {
   if (/^https?:|^#|^mailto:/.test(u)) return u;
-  const m = u.match(/^([A-Za-z0-9._-]+)\.md$/);
-  if (m) return m[1].toLowerCase() === 'readme' ? './' : m[1].toLowerCase() + '.html';
+  const m = u.match(/^(?:\.\/)?(?:docs\/)?([A-Za-z0-9._-]+)\.md(#.*)?$/);
+  if (m) {
+    const base = m[1].toLowerCase() === 'readme' ? './' : m[1].toLowerCase() + '.html';
+    return base + (m[2] || '');
+  }
   return u;
 }
 
@@ -192,21 +195,25 @@ ${body}
 `;
 
 const pages = [
-  { src: 'README.md',   file: 'index.html',    title: 'ompjob - detached, reboot-surviving interactive AI agent sessions', label: 'Overview' },
-  { src: 'SECURITY.md', file: 'security.html', title: 'Security - ompjob', label: 'Security' },
+  { src: 'README.md',           file: 'index.html',     label: 'Overview',  title: 'ompjob - detached, reboot-surviving interactive AI agent sessions' },
+  { src: 'docs/tutorial.md',    file: 'tutorial.html',  label: 'Tutorial',  title: 'Tutorial - ompjob' },
+  { src: 'docs/reference.md',   file: 'reference.html', label: 'Reference', title: 'Reference - ompjob' },
+  { src: 'SECURITY.md',         file: 'security.html',  label: 'Security',  title: 'Security - ompjob' },
 ];
 
 fs.mkdirSync(out, { recursive: true });
 
-const nav = pages.map((p) => p.file).map((f, i) =>
-  '<a href="' + (f === 'index.html' ? './' : f) + '" data-f="' + f + '">' + pages[i].label + '</a>');
+// Build the nav per page rather than patching a prebuilt string: the active
+// entry is decided at generation time, not by fragile attribute matching.
+const navFor = (current) => pages.map((p) =>
+  '<a' + (p.file === current ? ' class="on"' : '') +
+  ' href="' + (p.file === 'index.html' ? './' : p.file) + '">' + p.label + '</a>').join('');
 
 for (const p of pages) {
   const md = fs.readFileSync(path.join(repo, p.src), 'utf8');
   const { body, toc } = render(md);
-  const navHtml = nav.map((a) => a.includes('data-f="' + p.file + '"')
-    ? a.replace('<a ', '<a class="on" ') : a).join('');
-  fs.writeFileSync(path.join(out, p.file), shell({ title: p.title, body, toc, nav: navHtml }));
+  fs.writeFileSync(path.join(out, p.file),
+    shell({ title: p.title, body, toc, nav: navFor(p.file) }));
   console.log('wrote ' + path.join(out, p.file));
 }
 
@@ -214,6 +221,6 @@ for (const p of pages) {
 fs.writeFileSync(path.join(out, '404.html'), shell({
   title: '404 - ompjob',
   body: '<h1>404</h1><p>No such page. Try the <a href="./">overview</a>.</p>',
-  toc: [], nav: nav.join(''),
+  toc: [], nav: navFor(null),
 }));
 console.log('wrote ' + path.join(out, '404.html'));
