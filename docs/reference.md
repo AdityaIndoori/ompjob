@@ -18,8 +18,10 @@ Extracted from the source, not from memory.
 | `ompjob logs` | `<name>` | Formatted transcript |
 | `ompjob stop` | `<name>` | Shut the agent down, keep the transcript |
 | `ompjob rm` | `<name>` | Delete job, task, and run directory |
+| `ompjob help` | — | Print help. Also `-h`, `--h`, `-help`, `--help`, `-?` |
 
-Running `ompjob` with no arguments is equivalent to `ompjob list`.
+Running `ompjob` with no arguments is equivalent to `ompjob list`. An unknown
+command prints the error plus the help and exits `1`.
 
 Job names must match `[A-Za-z0-9._-]+`. The name becomes a scheduled-task name
 (`ompjob-<name>`) and a pipe name (`\\.\pipe\ompjob-<name>`), so it must be

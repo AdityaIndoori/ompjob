@@ -144,6 +144,7 @@ client(s)` — the agent is alive with nobody connected.
 | `ompjob logs <name>` | Formatted transcript. `-Tail <n>`, `-Follow`. |
 | `ompjob stop <name>` | Shut the job down; keeps the transcript. |
 | `ompjob rm <name>` | Delete the job, its task, and its run directory. |
+| `ompjob help` | Print help. Also `-h`, `--h`, `-help`, `--help`, `-?`. |
 
 ### `start` flags
 
