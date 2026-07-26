@@ -34,7 +34,11 @@ param(
     [int]$Tail = 40,
     [switch]$Follow,
     [switch]$Attach,
-    [switch]$Force
+    [switch]$Force,
+    # Real switches, because PowerShell's binder consumes `-h`/`-help` as
+    # parameter names before positional binding: without these, `ompjob -h`
+    # silently left $Command at its default and ran `list`.
+    [Alias('h', '?')][switch]$Help
 )
 
 $ErrorActionPreference = 'Stop'
@@ -82,7 +86,76 @@ function Require-Node {
     if (-not (Get-Command node -EA SilentlyContinue)) { Fail 'node not found on PATH' }
 }
 
+function Show-Help {
+    $c = 'Cyan'; $g = 'DarkGray'
+    Write-Host ''
+    Write-Host '  ompjob' -ForegroundColor $c -NoNewline
+    Write-Host ' - detached, reboot-surviving, interactive omp jobs'
+    Write-Host ''
+    Write-Host '  A job outlives the shell that started it, survives reboot, and can be'
+    Write-Host '  reattached days later with its conversation intact.'
+    Write-Host ''
+    Write-Host '  USAGE' -ForegroundColor $c
+    Write-Host '    ompjob <command> [<name>] [options]'
+    Write-Host '    ompjob                            same as: ompjob list'
+    Write-Host ''
+    Write-Host '  COMMANDS' -ForegroundColor $c
+    Write-Host '    start  <name>   create and launch a job'
+    Write-Host '    attach <name>   replay history, then live; type to talk'
+    Write-Host '    say    <name> <text...>'
+    Write-Host '                    send one message without attaching'
+    Write-Host '    revive <name>   restart an interrupted job, resuming its session'
+    Write-Host '    list            table of every job'
+    Write-Host '    status <name>   detail for one job'
+    Write-Host '    logs   <name>   formatted transcript'
+    Write-Host '    stop   <name>   shut the agent down, keep the transcript'
+    Write-Host '    rm     <name>   delete the job, its task, and its run directory'
+    Write-Host ''
+    Write-Host '  START OPTIONS' -ForegroundColor $c
+    Write-Host '    -Prompt <text>      opening message'
+    Write-Host '    -PromptFile <path>  read the opening message from a file'
+    Write-Host '    -Cwd <dir>          agent working directory (default: current)'
+    Write-Host '    -Model <name>       passed to omp --model'
+    Write-Host '    -Attach             attach immediately after starting'
+    Write-Host '    -Force              recreate an existing job (deletes its transcript)'
+    Write-Host ''
+    Write-Host '  LOGS OPTIONS' -ForegroundColor $c
+    Write-Host '    -Tail <n>           lines to show (default 40)'
+    Write-Host '    -Follow             live tail'
+    Write-Host ''
+    Write-Host '  IN AN ATTACHED SESSION' -ForegroundColor $c
+    Write-Host '    <text>          send to the agent; steers it mid-turn'
+    Write-Host '    Ctrl+D          detach (job keeps running)'
+    Write-Host '    Ctrl+C          interrupt the turn (does not kill the job)'
+    Write-Host '    /status /abort /stop /detach'
+    Write-Host ''
+    Write-Host '  STATES' -ForegroundColor $c
+    Write-Host '    thinking  agent working      waiting      idle, ready for input'
+    Write-Host '    starting  broker coming up   interrupted  crashed -> ompjob revive'
+    Write-Host '    finished  exited cleanly     registered   never run -> ompjob revive'
+    Write-Host ''
+    Write-Host '  EXAMPLES' -ForegroundColor $c
+    Write-Host '    ompjob start build -Prompt "run the test suite and fix failures" -Attach'
+    Write-Host '    ompjob attach build'
+    Write-Host '    ompjob say build also update the changelog'
+    Write-Host '    ompjob logs build -Follow'
+    Write-Host ''
+    Write-Host ("  Job root: $Root" + $(if ($env:OMPJOB_ROOT) { '  (from OMPJOB_ROOT)' } else { '  (set OMPJOB_ROOT to change)' })) -ForegroundColor $g
+    Write-Host '  Docs: https://ompjob.aindoori.com' -ForegroundColor $g
+    Write-Host ''
+}
+
+# -h / -help / -? bind as a switch, so they never reach $Command.
+if ($Help) { Show-Help; exit 0 }
+
 switch ($Command.ToLower()) {
+
+  # Every one of these binds to $Command as a plain string, because $Command is
+  # a positional [string]; PowerShell never treats them as parameter names.
+  { $_ -in @('-h', '--h', '-help', '--help', '-?', '/?', 'help', 'h', '--usage') } {
+    Show-Help
+    break
+  }
 
   'start' {
     if (-not $Name) { Fail 'need a job name' }
@@ -254,5 +327,9 @@ switch ($Command.ToLower()) {
     Write-Host "removed '$Name'" -ForegroundColor Yellow
   }
 
-  default { Fail "unknown '$Command' (start|attach|say|revive|list|status|logs|stop|rm)" }
+  default {
+    Write-Host "ompjob: unknown command '$Command'" -ForegroundColor Red
+    Show-Help
+    exit 1
+  }
 }
